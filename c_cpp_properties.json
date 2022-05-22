@@ -1,0 +1,11 @@
+{
+    "version": 1,
+    "configurations": [
+        {
+            "name": "Primary",
+            "cStandard": "c17",
+            "includePath": [
+            ]
+        }
+    ]
+}
