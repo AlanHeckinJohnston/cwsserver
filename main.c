@@ -21,6 +21,8 @@ int main()
     }
 
     SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    u_long mode;
     
     if (listenSocket == INVALID_SOCKET)
     {
@@ -32,6 +34,12 @@ int main()
         printf("Created socket\n");
     }
 
+    int success = ioctlsocket(listenSocket, FIONBIO, &mode); 
+
+    if (success != 0)
+    {
+        printf("Could not switch socket mode. :(\n%d\n", WSAGetLastError());
+    }
     struct sockaddr_in address;
     address.sin_family = AF_INET;
     address.sin_port = htons(8000);
@@ -62,35 +70,54 @@ int main()
 
 
     SOCKET clientSocket;
-
-    clientSocket = accept(listenSocket, NULL, NULL);
-    
-
-    if (clientSocket == INVALID_SOCKET)
-    {
-        printf("Invalid socket: %d\n", WSAGetLastError());
-    }
-
-    printf("Socket connected.");
-    
-    int iResult;
+    int socketPopulated = 0;
     while (1)
     {
-        char recvbuf[5000];
-        iResult = recv(clientSocket, recvbuf, 5000, 0);
+        if (!socketPopulated)
+        {
+            clientSocket = accept(listenSocket, NULL, NULL);
+            if (clientSocket != INVALID_SOCKET)
+            {
+                int cSuccess = ioctlsocket(clientSocket, FIONBIO, &mode); 
 
-        if (iResult > 0)
-        {
-            printf("received %d bytes:\n", iResult);
-            printf("%s\n", recvbuf);
+                if (cSuccess != 0)
+                {
+                    printf("Could not switch socket mode. :(\n%d\n", WSAGetLastError());
+                    break;
+                }
+
+                socketPopulated = 1;
+            }
+            // else
+            // {
+            //     printf("Could not connect with client: %d\n", WSAGetLastError());
+            //     break;
+            // }
         }
-        else if (iResult == SOCKET_ERROR)
+        else
         {
-            closesocket(clientSocket);
-            printf("UH OH UH OH\n");
-            break;
+            char recvbuf[5000];
+            int iResult = recv(clientSocket, recvbuf, 5000, 0);
+
+            if (iResult > 0)
+            {
+                printf("received %d bytes:\n", iResult);
+                printf("%s\n", recvbuf);
+            }
+            else if (iResult == SOCKET_ERROR)
+            {
+                int error = WSAGetLastError();
+
+                if (error != 10035)
+                {
+                    closesocket(clientSocket);
+                    printf("UH OH UH OH\n%d\n", error);
+                    break;
+                }
+            }
         }
     }
+    
     closesocket(listenSocket);
     WSACleanup();
     return 0;
