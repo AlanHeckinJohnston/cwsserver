@@ -120,11 +120,15 @@ int main()
                     buffer[len] = '\0';
                     printf("%s", buffer);
                 }
-                else
+                else if (receiveResult == 0)
                 {
                     socketPopulated = 0;
                     closesocket(clientSocket);
-                    printf("\n");
+                    printf("Socket closed\n");
+                }
+                else
+                {
+                    printf("Socket read error: %d\n", WSAGetLastError());
                 }
             }
         }
