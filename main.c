@@ -71,48 +71,56 @@ int main()
 
     SOCKET clientSocket;
     int socketPopulated = 0;
+
+    fd_set read;
+    fd_set write;
+
     while (1)
     {
-        if (!socketPopulated)
+        FD_ZERO(&read);
+        FD_SET(listenSocket, &read);
+
+        if (socketPopulated)
         {
-            clientSocket = accept(listenSocket, NULL, NULL);
-            if (clientSocket != INVALID_SOCKET)
-            {
-                int cSuccess = ioctlsocket(clientSocket, FIONBIO, &mode); 
-
-                if (cSuccess != 0)
-                {
-                    printf("Could not switch socket mode. :(\n%d\n", WSAGetLastError());
-                    break;
-                }
-
-                socketPopulated = 1;
-            }
-            // else
-            // {
-            //     printf("Could not connect with client: %d\n", WSAGetLastError());
-            //     break;
-            // }
+            FD_SET(clientSocket, &read);
         }
-        else
+        int readInfo = select(0, &read, NULL, NULL, NULL);
+        
+        if (readInfo == SOCKET_ERROR)
         {
-            char recvbuf[5000];
-            int iResult = recv(clientSocket, recvbuf, 5000, 0);
-
-            if (iResult > 0)
+            printf("error reading: %d\n", WSAGetLastError());
+        }   
+        else if (readInfo > 0)
+        {
+            if (FD_ISSET(listenSocket, &read))
             {
-                printf("received %d bytes:\n", iResult);
-                printf("%s\n", recvbuf);
-            }
-            else if (iResult == SOCKET_ERROR)
-            {
-                int error = WSAGetLastError();
+                clientSocket = accept(listenSocket, NULL, NULL);
 
-                if (error != 10035)
+                if (clientSocket == INVALID_SOCKET)
                 {
+                    printf("could not accept connection - %d", WSAGetLastError());
+                }
+                else
+                {
+                    printf("Accepted connection\n");
+                    socketPopulated = 1;
+                }
+                readInfo -= 1;
+            }
+            
+        
+            if (socketPopulated && FD_ISSET(clientSocket, &read))
+            {
+                char buffer[100];
+                int receiveResult = recv(clientSocket, buffer, 100, 0);
+                if (receiveResult > 0)
+                {
+                    printf("%s", buffer);
+                }
+                else
+                {
+                    socketPopulated = 0;
                     closesocket(clientSocket);
-                    printf("UH OH UH OH\n%d\n", error);
-                    break;
                 }
             }
         }
