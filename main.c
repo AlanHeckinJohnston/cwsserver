@@ -115,12 +115,16 @@ int main()
                 int receiveResult = recv(clientSocket, buffer, 100, 0);
                 if (receiveResult > 0)
                 {
+                    int len = receiveResult > 100 ? 100 : receiveResult;
+
+                    buffer[len] = '\0';
                     printf("%s", buffer);
                 }
                 else
                 {
                     socketPopulated = 0;
                     closesocket(clientSocket);
+                    printf("\n");
                 }
             }
         }
