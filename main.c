@@ -69,21 +69,39 @@ int main()
     }
 
 
-    SOCKET clientSocket;
-    int socketPopulated = 0;
+
 
     fd_set read;
     fd_set write;
+
+    struct SocketInfo {
+        SOCKET socket;
+        char *lastMessage;
+        char *pendingMessage;
+        int socket_populated;
+    };
+
+
+    // listening socket will not be in this array
+    struct SocketInfo sockets[50];
+
+    for (int i = 0; i < 50; i++)
+    {
+        sockets[i].socket_populated = 0;
+    }
 
     while (1)
     {
         FD_ZERO(&read);
         FD_SET(listenSocket, &read);
-
-        if (socketPopulated)
+        for (int i = 0; i < 50; i++)
         {
-            FD_SET(clientSocket, &read);
+            if (sockets[i].socket_populated)
+            {
+                FD_SET(sockets[i].socket, &read);
+            }
         }
+
         int readInfo = select(0, &read, NULL, NULL, NULL);
         
         if (readInfo == SOCKET_ERROR)
@@ -94,7 +112,29 @@ int main()
         {
             if (FD_ISSET(listenSocket, &read))
             {
-                clientSocket = accept(listenSocket, NULL, NULL);
+                SOCKET clientSocket = accept(listenSocket, NULL, NULL);
+
+                int i = 0;
+                int found = 0;
+                while (i < 50 && found == 0)
+                {
+                    if (sockets[i].socket_populated == 0)
+                    {
+                        found = 1;
+                    }
+                    else
+                    {
+
+                        i++;
+                    }
+                }
+
+                if (found == 0)
+                {
+                    send(clientSocket, "Sorry - no room for new clients\0", 32, 0);
+                    printf("Rejected connection due to no more new clients available");
+                    closesocket(clientSocket);
+                }
 
                 if (clientSocket == INVALID_SOCKET)
                 {
@@ -102,33 +142,36 @@ int main()
                 }
                 else
                 {
-                    printf("Accepted connection\n");
-                    socketPopulated = 1;
+                    printf("Accepted connection and stored in %d\n", i);
+                    sockets[i].socket = clientSocket;
+                    sockets[i].socket_populated = 1;
+                    readInfo -= 1;
                 }
-                readInfo -= 1;
             }
             
-        
-            if (socketPopulated && FD_ISSET(clientSocket, &read))
+            for (int i = 0; i < 50 && readInfo > 0; i++)
             {
-                char buffer[100];
-                int receiveResult = recv(clientSocket, buffer, 100, 0);
-                if (receiveResult > 0)
+                if (sockets[i].socket_populated && FD_ISSET(sockets[i].socket, &read))
                 {
-                    int len = receiveResult > 100 ? 100 : receiveResult;
+                    char buffer[100];
+                    int receiveResult = recv(sockets[i].socket, buffer, 100, 0);
+                    if (receiveResult > 0)
+                    {
+                        buffer[receiveResult] = '\0';
+                        printf("%s", buffer);
+                        readInfo -= 1;
+                    }
+                    else if (receiveResult == 0)
+                    {
+                        sockets[i].socket_populated = 0;
+                        closesocket(sockets[i].socket);
+                        printf("Socket closed\n");
 
-                    buffer[len] = '\0';
-                    printf("%s", buffer);
-                }
-                else if (receiveResult == 0)
-                {
-                    socketPopulated = 0;
-                    closesocket(clientSocket);
-                    printf("Socket closed\n");
-                }
-                else
-                {
-                    printf("Socket read error: %d\n", WSAGetLastError());
+                        if (receiveResult == SOCKET_ERROR)
+                        {
+                            printf("Socket read error: %d\n", WSAGetLastError());
+                        }
+                    }
                 }
             }
         }
