@@ -4,20 +4,8 @@
 #include "socket.h"
 #include "client_management.h"
 
+#define SERVER_TIMEOUT 120
 
-void printMessages(struct SocketInfo** sockets)
-{
-    for (int i = 0; i < 50; i++)
-    {
-        if (!(*sockets)[i].socket_populated || !(*sockets)[i].hasMessagePending)
-        {
-            continue;
-        }
-        printf("%s", (*sockets)[i].pendingMessage);
-        (*sockets)[i].hasMessagePending = 0;
-        free((*sockets)[i].pendingMessage);
-    }
-}
 
 int main()
 {
@@ -53,7 +41,7 @@ int main()
 
     int connectedClients = 0;
 
-    while (connectedClients > 0 || time(NULL) - last_update < 120)
+    while (connectedClients > 0 || time(NULL) - last_update < SERVER_TIMEOUT)
     {
         FD_ZERO(&read);
         FD_SET(listenSocket, &read);
@@ -83,6 +71,13 @@ int main()
             {
                 printMessages(&sockets);
             } 
+        }
+
+        int inactive[10];
+        closeInactive(&sockets, inactive);
+        for (int i = 0; i < 10 && inactive[i] != -1; i++)
+        {
+            printf("Closed %d due to inactivity", i);
         }
     }
     

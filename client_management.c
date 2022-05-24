@@ -1,7 +1,23 @@
 
 #include <stdio.h>
 #include "client_management.h"
+#include <time.h>
+#define SOCKET_TIMEOUT 10
 
+
+void printMessages(struct SocketInfo** sockets)
+{
+    for (int i = 0; i < 50; i++)
+    {
+        if (!(*sockets)[i].socket_populated || !(*sockets)[i].hasMessagePending)
+        {
+            continue;
+        }
+        printf("%s", (*sockets)[i].pendingMessage);
+        (*sockets)[i].hasMessagePending = 0;
+        free((*sockets)[i].pendingMessage);
+    }
+}
 
 int acceptClients(SOCKET* listenSocketPtr, struct SocketInfo** sockets, int* connectedClients)
 {
@@ -12,13 +28,10 @@ int acceptClients(SOCKET* listenSocketPtr, struct SocketInfo** sockets, int* con
     while (i < 50 && found == 0)
     {
         if ((*sockets)[i].socket_populated == 0)
-        {
             found = 1;
-        }
-        else
-        {
+        else 
             i++;
-        }
+        
     }
 
     u_long mode = 1;
@@ -44,6 +57,7 @@ int acceptClients(SOCKET* listenSocketPtr, struct SocketInfo** sockets, int* con
         (*sockets)[i].socket = clientSocket;
         (*sockets)[i].socket_populated = 1;
         (*sockets)[i].hasMessagePending = 0;
+        (*sockets)[i].last_message_time = time(NULL);
         return 1;
     }
 
@@ -66,6 +80,7 @@ int readFromClients(struct SocketInfo** sockets, fd_set* read, int readInfo, int
                 buffer[receiveResult] = '\0';
                 (*sockets)[i].hasMessagePending = 1;
                 (*sockets)[i].pendingMessage = malloc(sizeof(char)*receiveResult);
+                (*sockets)[i].last_message_time = time(NULL);
                 strcpy((*sockets)[i].pendingMessage, buffer);
                 result++;
                 readInfo -= 1;
@@ -73,18 +88,42 @@ int readFromClients(struct SocketInfo** sockets, fd_set* read, int readInfo, int
             else if (receiveResult <= 0)
             {
                 (*sockets)[i].socket_populated = 0;
-                free((*sockets)[i].pendingMessage);
+                if ((*sockets)[i].hasMessagePending)
+                {
+                    free((*sockets)[i].pendingMessage);
+                }
                 closesocket((*sockets)[i].socket);
                 *connectedClients --;
-                printf("Client %d disconnect", i);
-
-                if (receiveResult == SOCKET_ERROR)
-                {
-                }
             }
         }
     }
 
 
     return result;
+}
+
+
+void closeInactive(struct SocketInfo** sockets, int* result)
+{
+    for (int i = 0; i < 10; i++)
+    {
+        result[i] = -1;
+    }
+
+    for (int i = 0, count = 0; i < 50 && count < 10; i++)
+    {
+        if ((*sockets)[i].socket_populated && time(NULL) - (*sockets)[i].last_message_time > SOCKET_TIMEOUT)
+        {
+            closesocket((*sockets)[i].socket);
+            (*sockets)[i].socket_populated = 0;
+            (*sockets)[i].hasMessagePending = 0;
+
+            if ((*sockets)[i].hasMessagePending)
+            {
+                free((*sockets)[i].pendingMessage);
+            }
+            result[count] = i;
+            count++;
+        }
+    }
 }
