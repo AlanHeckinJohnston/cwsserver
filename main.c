@@ -1,88 +1,33 @@
 #include <stdio.h>
 #include <winsock2.h>
-#include <stdint.h>
+#include <time.h>
+#include "socket.h"
 
 int main()
 {
-    WSADATA lpWSAData;
+    time_t last_update = time(NULL);
 
-    WORD version = MAKEWORD(2,2);
+    int port = 8000;
+    int error_code;
+    char** error_string = (char**) malloc(sizeof(char**)*1024);
 
-    int startupResult = WSAStartup(version, &lpWSAData);
+    SOCKET listenSocket = createSocket(&port, &error_code, &error_string);
 
-    if (startupResult != 0)
-    {
-        printf("Failed to initialize windows socket. Error code: %d", startupResult);
-        return 1;
-    }
-    else
-    {
-        printf("Initialized WSA\n");
-    }
-
-    SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-    u_long mode;
-    
     if (listenSocket == INVALID_SOCKET)
     {
-        printf("Failed to create socket: %d\n", WSAGetLastError());
+        printf("Socket failed: %s", *error_string);
         return 1;
     }
     else
     {
-        printf("Created socket\n");
+        printf("Successfully bound socket\n");
+        free(error_string);
     }
-
-    int success = ioctlsocket(listenSocket, FIONBIO, &mode); 
-
-    if (success != 0)
-    {
-        printf("Could not switch socket mode. :(\n%d\n", WSAGetLastError());
-    }
-    struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_port = htons(8000);
-    address.sin_addr.s_addr = inet_addr("0.0.0.0\0");
-    int bound = bind(listenSocket, (struct sockaddr*) &address, sizeof(address));
-
-    if (bound == SOCKET_ERROR)
-    {
-        printf("Sorry m8, failed to bind...\n");
-        printf("%d", WSAGetLastError());
-        return 1;
-    }
-    else
-    {
-        printf("Bound socket\n");
-    }
-
-    printf("socket looks good to me kek\n");
-
-    if (listen(listenSocket,SOMAXCONN) == SOCKET_ERROR)
-    {
-        printf("Failed to listen: %s\n", WSAGetLastError());
-        closesocket(listenSocket);
-    }
-    else{
-        printf("Listening\n");
-    }
-
-
-
 
     fd_set read;
     fd_set write;
 
-    struct SocketInfo {
-        SOCKET socket;
-        char *lastMessage;
-        char *pendingMessage;
-        int socket_populated;
-    };
-
-
-    // listening socket will not be in this array
+    // server socket will not be in this array
     struct SocketInfo sockets[50];
 
     for (int i = 0; i < 50; i++)
@@ -90,7 +35,9 @@ int main()
         sockets[i].socket_populated = 0;
     }
 
-    while (1)
+    int connectedClients = 0;
+
+    while (connectedClients > 0 || time(NULL) - last_update < 120)
     {
         FD_ZERO(&read);
         FD_SET(listenSocket, &read);
@@ -101,8 +48,8 @@ int main()
                 FD_SET(sockets[i].socket, &read);
             }
         }
-
-        int readInfo = select(0, &read, NULL, NULL, NULL);
+        struct timeval t = {};
+        int readInfo = select(0, &read, NULL, NULL, &t);
         
         if (readInfo == SOCKET_ERROR)
         {
@@ -110,6 +57,7 @@ int main()
         }   
         else if (readInfo > 0)
         {
+            last_update = time(NULL);
             if (FD_ISSET(listenSocket, &read))
             {
                 SOCKET clientSocket = accept(listenSocket, NULL, NULL);
@@ -136,13 +84,19 @@ int main()
                     closesocket(clientSocket);
                 }
 
+                u_long mode = 1;
                 if (clientSocket == INVALID_SOCKET)
                 {
                     printf("could not accept connection - %d", WSAGetLastError());
                 }
+                else if (ioctlsocket(clientSocket, FIONBIO, &mode) == SOCKET_ERROR)
+                {
+                    printf("could not switch socket blocking mode - %d", WSAGetLastError());
+                }
                 else
                 {
                     printf("Accepted connection and stored in %d\n", i);
+                    connectedClients++;
                     sockets[i].socket = clientSocket;
                     sockets[i].socket_populated = 1;
                     readInfo -= 1;
@@ -165,6 +119,7 @@ int main()
                     {
                         sockets[i].socket_populated = 0;
                         closesocket(sockets[i].socket);
+                        connectedClients --;
                         printf("Socket closed\n");
 
                         if (receiveResult == SOCKET_ERROR)
