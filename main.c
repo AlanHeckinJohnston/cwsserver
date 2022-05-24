@@ -76,48 +76,7 @@ int main()
             last_update = time(NULL);
             if (FD_ISSET(listenSocket, &read))
             {
-                SOCKET clientSocket = accept(listenSocket, NULL, NULL);
-
-                int i = 0;
-                int found = 0;
-                while (i < 50 && found == 0)
-                {
-                    if (sockets[i].socket_populated == 0)
-                    {
-                        found = 1;
-                    }
-                    else
-                    {
-                        i++;
-                    }
-                }
-
-                u_long mode = 1;
-                if (found == 0)
-                {
-                    send(clientSocket, "Sorry - no room for new clients\0", 32, 0);
-                    printf("Rejected connection due to no more new clients available");
-                    closesocket(clientSocket);
-                }
-                else
-                if (clientSocket == INVALID_SOCKET)
-                {
-                    printf("could not accept connection - %d", WSAGetLastError());
-                }
-                else if (ioctlsocket(clientSocket, FIONBIO, &mode) == SOCKET_ERROR)
-                {
-                    printf("could not switch socket blocking mode - %d", WSAGetLastError());
-                }
-                else
-                {
-                    printf("Accepted connection and stored in %d\n", i);
-                    connectedClients++;
-                    sockets[i].socket = clientSocket;
-                    sockets[i].socket_populated = 1;
-                    sockets[i].hasMessagePending = 0;
-                    readInfo -= 1;
-                    printf("Allocated\n");
-                }
+                acceptClients(&listenSocket, &sockets, &connectedClients);
             }
 
             if (readFromClients(&sockets, &read, readInfo, &connectedClients) > 0)

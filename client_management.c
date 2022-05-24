@@ -3,6 +3,53 @@
 #include "client_management.h"
 
 
+int acceptClients(SOCKET* listenSocketPtr, struct SocketInfo** sockets, int* connectedClients)
+{
+    SOCKET clientSocket = accept(*listenSocketPtr, NULL, NULL);
+
+    int i = 0;
+    int found = 0;
+    while (i < 50 && found == 0)
+    {
+        if ((*sockets)[i].socket_populated == 0)
+        {
+            found = 1;
+        }
+        else
+        {
+            i++;
+        }
+    }
+
+    u_long mode = 1;
+    if (found == 0)
+    {
+        send(clientSocket, "Sorry - no room for new clients\0", 32, 0);
+        // printf("Rejected connection due to no more new clients available");
+        closesocket(clientSocket);
+    }
+    else
+    if (clientSocket == INVALID_SOCKET)
+    {
+        // printf("could not accept connection - %d", WSAGetLastError());
+    }
+    else if (ioctlsocket(clientSocket, FIONBIO, &mode) == SOCKET_ERROR)
+    {
+        // printf("could not switch socket blocking mode - %d", WSAGetLastError());
+    }
+    else
+    {
+        printf("Accepted connection and stored in %d\n", i);
+        *connectedClients++;
+        (*sockets)[i].socket = clientSocket;
+        (*sockets)[i].socket_populated = 1;
+        (*sockets)[i].hasMessagePending = 0;
+        return 1;
+    }
+
+    return 0;
+}
+
 
 int readFromClients(struct SocketInfo** sockets, fd_set* read, int readInfo, int* connectedClients)
 {
@@ -23,12 +70,13 @@ int readFromClients(struct SocketInfo** sockets, fd_set* read, int readInfo, int
                 result++;
                 readInfo -= 1;
             }
-            else if (receiveResult == 0)
+            else if (receiveResult <= 0)
             {
                 (*sockets)[i].socket_populated = 0;
                 free((*sockets)[i].pendingMessage);
                 closesocket((*sockets)[i].socket);
                 *connectedClients --;
+                printf("Client %d disconnect", i);
 
                 if (receiveResult == SOCKET_ERROR)
                 {
