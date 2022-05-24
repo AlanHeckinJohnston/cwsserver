@@ -1,3 +1,2 @@
 call clean.bat
-gcc -c *.c
-gcc *.o -lws2_32 -o main.exe
+gcc *.c -o main.exe -lws2_32
