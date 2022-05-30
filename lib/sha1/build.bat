@@ -1,1 +1,0 @@
-gcc -c *.c -o ../obj/sha1.o

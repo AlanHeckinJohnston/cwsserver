@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "client_management.h"
 #include <time.h>
+#define SOCKET_TIMEOUT 10
 
 
 void printMessages(struct SocketInfo** sockets)
