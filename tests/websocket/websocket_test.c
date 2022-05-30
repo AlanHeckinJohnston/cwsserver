@@ -5,10 +5,10 @@
 #include <string.h>
 int main()
 {
-    FILE *file = fopen("header_test.txt", "r");
+    FILE *file = fopen("tests/header_test.txt", "r");
 
     
-char* s = malloc(sizeof(char)*5000);
+    char* s = malloc(sizeof(char)*5000);
     s[0] = '\0';
 
     int end = 0;

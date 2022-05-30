@@ -1,8 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include "headerprocessor.h"
 int main()
 {
-    FILE *file = fopen("header_test.txt", "r");
+    FILE *file = fopen("tests/header_test.txt", "r");
 
     
     char* s = malloc(sizeof(char)*5000);
