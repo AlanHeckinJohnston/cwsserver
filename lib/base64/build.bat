@@ -1,0 +1,1 @@
+gcc -c *.c -o ../obj/cencode.o
