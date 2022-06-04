@@ -3,6 +3,7 @@
 #include "websocket.h"
 #include <stdlib.h>
 #include <string.h>
+#include "lib/sha1/sha1.h"
 int main()
 {
     FILE *file = fopen("tests/header_test.txt", "r");
@@ -26,10 +27,13 @@ int main()
 
     fclose(file);
 
+
     char** headers = malloc(sizeof(char*)*40);
 
     int headerCount = getHeaders(s,headers);
     char* buffer = malloc(sizeof(char)*10000);
-    generateResponse(headers, headerCount, buffer);
+    char* response = generateResponse(headers, headerCount);
+
+    printf("%s", response);
     
 }

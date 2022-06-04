@@ -4,6 +4,7 @@
 #include "lib/base64/cencode.h"
 #include "lib/sha1/sha1.h"
 #include <stdio.h>
+#include <stdlib.h>
 #define PATH "GET / "
 
 #define GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -35,7 +36,7 @@ int confirmHandshakeAllowed(char** headers, int headerCount)
     return 0;
 }
 
-int b64_encode(char* string, char** out)
+void b64_encode(char* string, char** out)
 {
     base64_encodestate st;
     *out = malloc(sizeof(char)*10000);
@@ -50,34 +51,87 @@ int b64_encode(char* string, char** out)
     *c = '\0';
 }
 
-int generateWebsocketAccept(char* websocketKey, char* buffer)
+void generateWebsocketAccept(char* websocketKey, char** buffer)
 {
-    char* fullstring = malloc(sizeof(char)*(strlen(websocketKey) + strlen(GUID)));
+    char* fullstring = malloc(sizeof(char)*(strlen(websocketKey) + strlen(GUID)+1));
 
     strcpy(fullstring, websocketKey);
     strcat(fullstring, GUID);
 
-    char* b64 = malloc(sizeof(char) * 256);
-    b64_encode(fullstring, &b64);
-    SHA1(buffer, b64, strlen(b64));
+    char sha1[21];
 
+    SHA1(sha1, fullstring, strlen(fullstring));
 
-
-    return 0;
+    b64_encode(sha1, buffer);
 }
 
-int generateResponse(char** headers, int headerCount, char* messageBuffer)
+static char* clampResponseHeader(char* responseHeader)
+{
+    char lastChar, curChar;
+    int i = 0;
+    while (!(lastChar == ' ' && curChar == ' '))
+    {
+        lastChar = curChar;
+        curChar = responseHeader[i];
+        i++;
+    }
+
+    // responseHeader += i;
+    // *responseHeader = 0;
+    return responseHeader; 
+}
+
+static char* getResponseHeader()
+{
+    FILE* f = fopen("resources/response_handshake_header.txt", "r");
+
+    // something something file not there? bad install. skipping
+
+    char* s = malloc(sizeof(char)*5000);
+    s[0] = 0;
+    int end = 0;
+    do
+    {
+        char line[500];
+        fgets(line, 500, f);
+
+        end = feof(f);
+
+        if (strlen(line) > 0)
+            strcat(s,line);
+
+    } while (!end);
+
+    fclose(f);
+    return clampResponseHeader(s);
+}
+
+static char* popResponseHeader(char** header, char* key)
+{
+    char* location = strstr(*header, "${key}");
+
+    strcpy(location, key);
+    
+
+    char* end = location + strlen(key);
+    *end = 0;
+
+}
+
+char* generateResponse(char** headers, int headerCount)
 {
     char* key = getHeaderValue(headers, headerCount, "Sec-WebSocket-Key");
     if (key == NULL)
     {
-        return 0;
+        return NULL;
     }
+    
+    char* acceptBuffer = malloc(sizeof(char)*1000);
+    generateWebsocketAccept(key, &acceptBuffer);
 
-    char* buffer = malloc(sizeof(char*)*512);
-    generateWebsocketAccept(key, buffer);
-
-    printf("%s", buffer);
+    char* messageBuffer = getResponseHeader();
+    popResponseHeader(&messageBuffer, acceptBuffer);
+    return messageBuffer;
 }
 
 int openConection(struct SocketInfo* socket, char* message)
@@ -90,10 +144,8 @@ int openConection(struct SocketInfo* socket, char* message)
     if (requestErrorCcode == 0)
     {
         // everything is good!
-        char* responseMessage = malloc(sizeof(char)*5000);
-        int msgLength = generateResponse(headers, headerCount, responseMessage);
+        char* message = generateResponse(headers, headerCount);
         // send(socket->socket, responseMessage, msgLength);
-        free(responseMessage);
     }
 
     return 1;
