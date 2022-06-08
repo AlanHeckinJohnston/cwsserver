@@ -7,7 +7,7 @@
 int confirmHandshakeAllowed(char** headers, int headerCount);
 char* generateResponse(char** headers, int headerCount);
 // returns 0 on success, or non zero denoting error code on error.
-int openConection(struct SocketInfo* socket, char* message);
+int openConection(struct SocketInfo* socket);
 void b64_encode(char* string, char** out);
 /**
  * Error codes -
