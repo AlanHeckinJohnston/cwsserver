@@ -1,0 +1,4 @@
+Build instructions:
+
+"external dependencies" are located in the lib folder. Use the provided scripts with each dependency to
+create the obj file, as this will be a requirement for final compilation of the executable, and .bats are this projects "build tools".
