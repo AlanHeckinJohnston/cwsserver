@@ -5,6 +5,7 @@
 #include "lib/sha1/sha1.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <winsock.h>
 #define PATH "GET / "
 
 #define GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -51,7 +52,7 @@ void b64_encode(char* string, char** out)
     *c = '\0';
 }
 
-void generateWebsocketAccept(char* websocketKey, char** buffer)
+static void generateWebsocketAccept(char* websocketKey, char** buffer)
 {
     char* fullstring = malloc(sizeof(char)*(strlen(websocketKey) + strlen(GUID)+1));
 
@@ -134,19 +135,23 @@ char* generateResponse(char** headers, int headerCount)
     return messageBuffer;
 }
 
-int openConection(struct SocketInfo* socket, char* message)
+int openConection(struct SocketInfo* socket)
 {
     char** headers = malloc(sizeof(char*)*40);
-    int headerCount = getHeaders(message, headers);
+    int headerCount = getHeaders(socket->lastMessage, headers);
 
-    int requestErrorCcode = confirmHandshakeAllowed(headers, headerCount);
+    int requestErrorCode = confirmHandshakeAllowed(headers, headerCount);
 
-    if (requestErrorCcode == 0)
+    if (requestErrorCode == 0)
     {
         // everything is good!
         char* message = generateResponse(headers, headerCount);
-        // send(socket->socket, responseMessage, msgLength);
+        sendOnSocket(socket, message);
+    }
+    else
+    {
+        return requestErrorCode;
     }
 
-    return 1;
+    return 0;
 }

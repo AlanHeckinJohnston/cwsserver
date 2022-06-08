@@ -44,14 +44,20 @@ int main()
     while (connectedClients > 0 || time(NULL) - last_update < SERVER_TIMEOUT)
     {
         FD_ZERO(&read);
+        FD_ZERO(&write);
         FD_SET(listenSocket, &read);
         for (int i = 0; i < 50; i++)
         {
             if (sockets[i].socket_populated)
             {
                 FD_SET(sockets[i].socket, &read);
+                if (sockets[i].pendingMessage != NULL)
+                {
+                    FD_SET(sockets[i].socket, &write);
+                }
             }
         }
+
         struct timeval t = {};
         int readInfo = select(0, &read, NULL, NULL, &t);
         
@@ -70,7 +76,33 @@ int main()
             if (readFromClients(&sockets, &read, readInfo, &connectedClients) > 0)
             {
                 printMessages(&sockets);
+
+                // check for handhsakes 
+                for (int i = 0; i < 50; i++)
+                {
+                    if (sockets[i].handshake_completed == 0)
+                    {
+                        // if handshake has not been done, this is probably it.
+                        completeHandshake(sockets[i]);
+                    }
+                }
             } 
+        }
+
+        if (write.fd_count > 0)
+        {
+            int writeInfo = select(0, NULL, &write, NULL, &t);
+
+            if (writeInfo == SOCKET_ERROR)
+            {
+                printf("error writing: %d\n", WSAGetLastError());
+            }
+            else if (writeInfo > 0)
+            {
+                last_update = time(NULL);
+
+                writeToClients(&sockets, &write, writeInfo);
+            }
         }
 
         int inactive[10];

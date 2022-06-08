@@ -2,11 +2,11 @@
 #define WEBSOCKET_H
 
 #include "socket.h"
-#include "client_management.h"
+#include "socket_info.h"
 
 int confirmHandshakeAllowed(char** headers, int headerCount);
-void generateWebsocketAccept(char* websocketKey, char** buffer);
 char* generateResponse(char** headers, int headerCount);
+// returns 0 on success, or non zero denoting error code on error.
 int openConection(struct SocketInfo* socket, char* message);
 void b64_encode(char* string, char** out);
 /**

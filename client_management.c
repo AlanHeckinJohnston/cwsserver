@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include "client_management.h"
+#include "websocket.h"
 #include <time.h>
 
 
@@ -8,20 +9,28 @@ void printMessages(struct SocketInfo** sockets)
 {
     for (int i = 0; i < 50; i++)
     {
-        if (!(*sockets)[i].socket_populated || !(*sockets)[i].hasMessagePending)
+        if (!(*sockets)[i].socket_populated || !(*sockets)[i].hasLastMessage)
         {
             continue;
         }
         printf("%s", (*sockets)[i].pendingMessage);
-        (*sockets)[i].hasMessagePending = 0;
+        (*sockets)[i].hasLastMessage = 0;
         free((*sockets)[i].pendingMessage);
+    }
+}
+
+int completeHandshake(struct SocketInfo* socketInfo)
+{
+    if (!openConection(socket))
+    {
+
     }
 }
 
 int acceptClients(SOCKET* listenSocketPtr, struct SocketInfo** sockets, int* connectedClients)
 {
     SOCKET clientSocket = accept(*listenSocketPtr, NULL, NULL);
-
+    
     int i = 0;
     int found = 0;
     while (i < 50 && found == 0)
@@ -55,8 +64,9 @@ int acceptClients(SOCKET* listenSocketPtr, struct SocketInfo** sockets, int* con
         *connectedClients++;
         (*sockets)[i].socket = clientSocket;
         (*sockets)[i].socket_populated = 1;
-        (*sockets)[i].hasMessagePending = 0;
+        (*sockets)[i].hasLastMessage = 0;
         (*sockets)[i].last_message_time = time(NULL);
+        (*sockets)[i].handshake_completed = 0;
         return 1;
     }
 
@@ -77,7 +87,7 @@ int readFromClients(struct SocketInfo** sockets, fd_set* read, int readInfo, int
             if (receiveResult > 0)
             {
                 buffer[receiveResult] = '\0';
-                (*sockets)[i].hasMessagePending = 1;
+                (*sockets)[i].hasLastMessage = 1;
                 (*sockets)[i].pendingMessage = malloc(sizeof(char)*receiveResult);
                 (*sockets)[i].last_message_time = time(NULL);
                 strcpy((*sockets)[i].pendingMessage, buffer);
@@ -87,7 +97,7 @@ int readFromClients(struct SocketInfo** sockets, fd_set* read, int readInfo, int
             else if (receiveResult <= 0)
             {
                 (*sockets)[i].socket_populated = 0;
-                if ((*sockets)[i].hasMessagePending)
+                if ((*sockets)[i].hasLastMessage)
                 {
                     free((*sockets)[i].pendingMessage);
                 }
@@ -102,6 +112,26 @@ int readFromClients(struct SocketInfo** sockets, fd_set* read, int readInfo, int
 }
 
 
+int writeToClients(struct SocketInfo** sockets, fd_set* write, int writeInfo)
+{
+    int result = 0;
+    for (int i = 0; i < 50 && writeInfo > 0; i++)
+    {
+        int writeResult = send(sockets[i]->socket, sockets[i]->pendingMessage, strlen(sockets[i]->pendingMessage), MSG_OOB);
+
+        if (writeResult == SOCKET_ERROR)
+        {
+            // let's not write a message here
+        }
+        else
+        {
+            // if there isn't an error, we can clear the buffer though
+            sockets[i]->pendingMessage = NULL;
+        }
+        writeInfo --;
+    }
+}
+
 void closeInactive(struct SocketInfo** sockets, int* result)
 {
     for (int i = 0; i < 10; i++)
@@ -115,9 +145,9 @@ void closeInactive(struct SocketInfo** sockets, int* result)
         {
             closesocket((*sockets)[i].socket);
             (*sockets)[i].socket_populated = 0;
-            (*sockets)[i].hasMessagePending = 0;
+            (*sockets)[i].hasLastMessage = 0;
 
-            if ((*sockets)[i].hasMessagePending)
+            if ((*sockets)[i].hasLastMessage)
             {
                 free((*sockets)[i].pendingMessage);
             }
@@ -125,4 +155,9 @@ void closeInactive(struct SocketInfo** sockets, int* result)
             count++;
         }
     }
+}
+
+void sendOnSocket(struct SocketInfo* socketInfo, char* msgBuffer)
+{
+    socketInfo->pendingMessage = msgBuffer;
 }
