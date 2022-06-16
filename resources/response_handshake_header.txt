@@ -2,3 +2,4 @@ HTTP/1.1 101 Switching Protocols
 Upgrade: Websocket
 Connection: Upgrade
 Sec-WebSocket-Accept: ${key}                                                                   
+Sec-WebSocket-Version: 25
