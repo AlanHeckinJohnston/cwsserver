@@ -7,10 +7,10 @@
 
 int readFromClients(struct SocketInfo** sockets, fd_set* read, int readInfo, int* connectedClients);
 int acceptClients(SOCKET* listenSocketPtr, struct SocketInfo** sockets, int* connectedClients);
-int writeToClients(struct SocketInfo** sockets, fd_set* write, int writeInfo);
+int writeToClients(struct SocketInfo** sockets, fd_set* write, int* writeInfo);
 void closeInactive(struct SocketInfo** sockets, int* result);
 void printMessages(struct SocketInfo** sockets);
-
+int completeHandshake(struct SocketInfo* socketInfo, int* errorCode);
 // msgBuffer MUST be NULL terminated
 void sendOnSocket(struct SocketInfo* socketInfo, char* msgBuffer);
 

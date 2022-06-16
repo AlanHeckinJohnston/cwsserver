@@ -45,12 +45,14 @@ int main()
     {
         FD_ZERO(&read);
         FD_ZERO(&write);
+
         FD_SET(listenSocket, &read);
         for (int i = 0; i < 50; i++)
         {
             if (sockets[i].socket_populated)
             {
                 FD_SET(sockets[i].socket, &read);
+
                 if (sockets[i].pendingMessage != NULL)
                 {
                     FD_SET(sockets[i].socket, &write);
@@ -59,13 +61,13 @@ int main()
         }
 
         struct timeval t = {};
-        int readInfo = select(0, &read, NULL, NULL, &t);
+        int total = select(0, &read, &write, NULL, &t);
         
-        if (readInfo == SOCKET_ERROR)
+        if (total == SOCKET_ERROR)
         {
-            printf("error reading: %d\n", WSAGetLastError());
+            printf("error selecting: %d\n", WSAGetLastError());
         }   
-        else if (readInfo > 0)
+        else if (total > 0)
         {
             last_update = time(NULL);
             if (FD_ISSET(listenSocket, &read))
@@ -73,37 +75,36 @@ int main()
                 acceptClients(&listenSocket, &sockets, &connectedClients);
             }
 
-            if (readFromClients(&sockets, &read, readInfo, &connectedClients) > 0)
+            if (readFromClients(&sockets, &read, total, &connectedClients) > 0)
             {
                 printMessages(&sockets);
 
                 // check for handhsakes 
                 for (int i = 0; i < 50; i++)
                 {
-                    if (sockets[i].handshake_completed == 0)
+                    if (sockets[i].socket_populated == 1 && sockets[i].handshake_completed == 0)
                     {
                         // if handshake has not been done, this is probably it.
-                        completeHandshake(sockets[i]);
+
+                        int errorCode;
+                        completeHandshake(&(sockets[i]), &errorCode);
+                        sockets[i].handshake_completed = 1;
                     }
                 }
-            } 
-        }
-
-        if (write.fd_count > 0)
-        {
-            int writeInfo = select(0, NULL, &write, NULL, &t);
-
-            if (writeInfo == SOCKET_ERROR)
-            {
-                printf("error writing: %d\n", WSAGetLastError());
             }
-            else if (writeInfo > 0)
+            
+            if (write.fd_count > 0)
             {
-                last_update = time(NULL);
 
-                writeToClients(&sockets, &write, writeInfo);
+                if (total > 0)
+                {
+                    last_update = time(NULL);
+
+                    writeToClients(&sockets, &write, &total);
+                }
             }
         }
+
 
         int inactive[10];
         closeInactive(&sockets, inactive);

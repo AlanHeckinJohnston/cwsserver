@@ -14,17 +14,20 @@ void printMessages(struct SocketInfo** sockets)
             continue;
         }
         printf("%s", (*sockets)[i].pendingMessage);
+        printf("\r\n");
         (*sockets)[i].hasLastMessage = 0;
         free((*sockets)[i].pendingMessage);
     }
 }
 
-int completeHandshake(struct SocketInfo* socketInfo)
+int completeHandshake(struct SocketInfo* socketInfo, int* errorCode)
 {
-    if (!openConection(socket))
+    *errorCode = openConection(socketInfo);
+    if (*errorCode == 0)
     {
-
+        return 1;
     }
+    return 0;
 }
 
 int acceptClients(SOCKET* listenSocketPtr, struct SocketInfo** sockets, int* connectedClients)
@@ -112,23 +115,28 @@ int readFromClients(struct SocketInfo** sockets, fd_set* read, int readInfo, int
 }
 
 
-int writeToClients(struct SocketInfo** sockets, fd_set* write, int writeInfo)
+int writeToClients(struct SocketInfo** sockets, fd_set* write, int* writeInfo)
 {
     int result = 0;
     for (int i = 0; i < 50 && writeInfo > 0; i++)
     {
-        int writeResult = send(sockets[i]->socket, sockets[i]->pendingMessage, strlen(sockets[i]->pendingMessage), MSG_OOB);
+        if ((*sockets)[i].socket_populated && FD_ISSET((*sockets)[i].socket, writeInfo))
+        {
+            printf("writing to socket %d the following message: \n%s\n", i, (*sockets)[i].pendingMessage);
 
-        if (writeResult == SOCKET_ERROR)
-        {
-            // let's not write a message here
+            int writeResult = send((*sockets)[i].socket, (*sockets)[i].pendingMessage, strlen((*sockets)[i].pendingMessage), MSG_OOB);
+            printf("successfully wrote to %d", i);
+            if (writeResult == SOCKET_ERROR)
+            {
+                // let's not write a message here
+            }
+            else
+            {
+                // if there isn't an error, we can clear the buffer though
+                (*sockets)[i].pendingMessage = NULL;
+            }
+            writeInfo --;
         }
-        else
-        {
-            // if there isn't an error, we can clear the buffer though
-            sockets[i]->pendingMessage = NULL;
-        }
-        writeInfo --;
     }
 }
 
