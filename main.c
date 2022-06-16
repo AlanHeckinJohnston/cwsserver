@@ -107,11 +107,6 @@ int main()
 
 
         int inactive[10];
-        closeInactive(&sockets, inactive);
-        for (int i = 0; i < 10 && inactive[i] != -1; i++)
-        {
-            printf("Closed %d due to inactivity", i);
-        }
     }
     
     closesocket(listenSocket);
