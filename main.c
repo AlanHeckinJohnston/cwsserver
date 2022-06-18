@@ -37,28 +37,16 @@ int main()
     for (int i = 0; i < 50; i++)
     {
         sockets[i].socket_populated = 0;
+        sockets[i].hasMessageToSend = 0;
+        sockets[i].hasReceivedMessage = 0;
+        sockets[i].handshake_completed = 0;
     }
 
     int connectedClients = 0;
 
     while (connectedClients > 0 || time(NULL) - last_update < SERVER_TIMEOUT)
     {
-        FD_ZERO(&read);
-        FD_ZERO(&write);
-
-        FD_SET(listenSocket, &read);
-        for (int i = 0; i < 50; i++)
-        {
-            if (sockets[i].socket_populated)
-            {
-                FD_SET(sockets[i].socket, &read);
-
-                if (sockets[i].pendingMessage != NULL)
-                {
-                    FD_SET(sockets[i].socket, &write);
-                }
-            }
-        }
+        prepareSets(&sockets, &listenSocket, &read, &write);
 
         struct timeval t = {};
         int total = select(0, &read, &write, NULL, &t);
