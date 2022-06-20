@@ -24,12 +24,7 @@ int confirmHandshakeAllowed(char** headers, int headerCount)
         return 1;
     }
 
-    if (getHeaderValue(headers, headerCount, "Sec-WebSocket-Extensions") != NULL)
-    {
-        return 2;
-    }
-
-    if (getHeaderValue(headers, headerCount, "Sec-Websocket-Key") == NULL)
+    if (getHeaderValue(headers, headerCount, "Sec-WebSocket-Key") == NULL)
     {
         return 3;
     }
@@ -138,20 +133,29 @@ char* generateResponse(char** headers, int headerCount)
 int openConection(struct SocketInfo* socket)
 {
     char** headers = malloc(sizeof(char*)*40);
-    int headerCount = getHeaders(socket->lastMessage, headers);
-
+    char* message = consume_message(socket);
+    int headerCount = getHeaders(message, headers);
+    free(message);
     int requestErrorCode = confirmHandshakeAllowed(headers, headerCount);
 
     if (requestErrorCode == 0)
     {
         // everything is good!
-        char* message = generateResponse(headers, headerCount);
-        sendOnSocket(socket, message);
+        char* toSend = generateResponse(headers, headerCount);
+        queueMessageSend(socket, toSend);
+        return 0;
     }
-    else
-    {
-        return requestErrorCode;
-    }
+    
+    return requestErrorCode;
+    
 
-    return 0;
+}
+
+int readMessage(struct SocketInfo* socketInfo, char** message)
+{
+    char* firstByte;
+    recv(socketInfo->socket, firstByte, 1, 0);
+
+    int fin = *firstByte & -0;
+    
 }

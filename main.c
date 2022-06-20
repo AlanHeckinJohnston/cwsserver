@@ -4,7 +4,7 @@
 #include "socket.h"
 #include "client_management.h"
 
-#define SERVER_TIMEOUT 120
+#define SERVER_TIMEOUT 4000
 
 
 int main()
@@ -75,26 +75,29 @@ int main()
                         // if handshake has not been done, this is probably it.
 
                         int errorCode;
-                        completeHandshake(&(sockets[i]), &errorCode);
+                        if (!completeHandshake(&(sockets[i]), &errorCode))
+                        {
+                            printf("could not complete handshake - error %d", errorCode);
+                        }
                         sockets[i].handshake_completed = 1;
+                        printf("handshake queued\n");
                     }
                 }
             }
             
             if (write.fd_count > 0)
             {
-
                 if (total > 0)
                 {
                     last_update = time(NULL);
+                    printMessagesSending(&sockets);
+                    int error[50];
+                    writeToClients(&sockets, &write, &total, (int*) &error);
 
-                    writeToClients(&sockets, &write, &total);
+                    
                 }
             }
         }
-
-
-        int inactive[10];
     }
     
     closesocket(listenSocket);

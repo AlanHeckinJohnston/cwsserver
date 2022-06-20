@@ -4,26 +4,6 @@
 #include "socket_info.h"
 
 
-void prepareSets(struct SocketInfo** sockets, SOCKET* listenSocket, fd_set* read, fd_set* write)
-{
-    FD_ZERO(read);
-    FD_ZERO(write);
-
-    FD_SET(*listenSocket, read);
-    for (int i = 0; i < 50; i++)
-    {
-        if ((*sockets)[i].socket_populated)
-        {
-            FD_SET((*sockets)[i].socket, read);
-
-            if ((*sockets)[i].hasMessageToSend && (*sockets)[i].messageToSend != NULL)
-            {
-                printf("preparing to write to %d", i);
-                FD_SET((*sockets)[i].socket, write);
-            }
-        }
-    }
-}
 
 static int initializeWindowsSocket(int* error_code, char*** error_string)
 {
